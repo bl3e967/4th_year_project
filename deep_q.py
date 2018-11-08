@@ -15,12 +15,14 @@ class deep_q_learner():
                 discount_factor = 0.99, 
                 replay_memory_max_capacity = 500000, 
                 replay_memory_initial = 50000,
-                frame_skipping = 4):
+                frame_skipping = 4,
+                batch_size = 32):
         
         # OpenAI environment
         self.env = env 
         
         # Training parameters
+        self.batch_size = batch_size
         self.num_episodes = num_episodes
         self.epsilon = epsilon
         self.epsilon_decay_rate = epsilon_decay_rate
@@ -30,7 +32,7 @@ class deep_q_learner():
         self.replay_memory_initial = replay_memory_initial
         self.frame_skipping = frame_skipping
 
-    class estimator(self):
+    class estimator():
         """
             Q-value estimator using Convolutional Neural Network. 
         """
@@ -57,7 +59,7 @@ class deep_q_learner():
                 Output Layer: 
                     Fully Connected Linear Layer - single output for each valid action            
             """
-            # Placeholder for input
+            # Placeholder for input. m corresponds to the number of frames being concatenated
             m = 4
             self.input_pl = tf.placeholder(shape=[84, 84, m], dtype=tf.uint8, name="Input")
             # Placeholder for td_target
@@ -67,8 +69,19 @@ class deep_q_learner():
 
             # Convolutional Layers
             conv1 = tf.contrib.layers.conv2d(self.input_pl, 32, 8, 4, activation_fn=tf.nn.relu)
-            conv2 = tf.contrib.layers.conv2d(self.input_pl, 64, 4, 2, activation_fn=tf.nn.relu)
-            conv3 = tf.contrib.layers.conv2d(self.input_pl, 64, 3, 1, activation_fn=tf.nn.relu)
+            conv2 = tf.contrib.layers.conv2d(conv1, 64, 4, 2, activation_fn=tf.nn.relu)
+            conv3 = tf.contrib.layers.conv2d(conv2, 64, 3, 1, activation_fn=tf.nn.relu)
+
+            # Fully connected layer input
+            fcn_input = tf.contrib.layers.flatten(conv3)
+            # First fully connected layer
+            fc1 = tf.contrib.layers.fully_connected(fcn_input, 512)
+            # Output layer
+            self.predictions = tf.contrib.layers.fully_connected(fc1, len(env.action_space.n))
+
+
+
+
 
 
 
