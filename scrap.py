@@ -73,6 +73,7 @@ class Estimator():
 
         X = tf.to_float(self.X_pl) / 255.0
         batch_size = tf.shape(self.X_pl)[0]
+        batch_size = tf.print(batch_size, [batch_size])
 
         # Three convolutional layers
         conv1 = tf.contrib.layers.conv2d(
@@ -285,7 +286,7 @@ def deep_q_learning(sess,
     # Populate the replay memory with initial experience
     print("Populating replay memory...")
     state = env.reset()
-    state = state_processor.process(sess, state)
+    state = state_processor.process(sess, state) # Preprocess image 
     state = np.stack([state] * 4, axis=2)
     for i in range(replay_memory_init_size):
         print(i)
