@@ -56,10 +56,10 @@ class q_learning():
                 ('rbf1', RBFSampler(gamma=5.0, n_components=100)),
                 ('rbf2', RBFSampler(gamma=2.0, n_components=100)),
                 ('rbf3', RBFSampler(gamma=1.0, n_components=100)),
-                ('rbf4', RBFSampler(gamma=0.5, n_components=100)),
-                ('rbf5', RBFSampler(gamma=0.2, n_components=100)),
-                ('rbf6', RBFSampler(gamma=0.1, n_components=100)),
-                ('rbf7', RBFSampler(gamma=0.7, n_components=100))
+                ('rbf4', RBFSampler(gamma=0.7, n_components=100)),
+                ('rbf5', RBFSampler(gamma=0.5, n_components=100)),
+                ('rbf6', RBFSampler(gamma=0.2, n_components=100)),
+                ('rbf7', RBFSampler(gamma=0.1, n_components=100))
             ])
 
             # Now initialize the feature vector by fitting it to the initial samples from the
@@ -124,7 +124,7 @@ class q_learning():
                         self.env.render()
 
                 q_value = estimator.predict_q(state, action=None)
-                epsilon = self.get_epsilon(t)
+                epsilon = self.get_epsilon(i_episodes)
                 # policy is an array of probabilities for each action
                 policy = self.make_epsilon_greedy_policy(q_value, state, epsilon)
                 # Choose action epsilon-greedily
@@ -155,10 +155,10 @@ class q_learning():
 
 
 if __name__ == "__main__":
-    env = gym.make('LunarLander-v2')
-    MountainCarSolver = q_learning(env, num_episodes=10000, epsilon=1.0, epsilon_decay_rate=0.9, discount_factor = 0.99, render=True, render_after=1000)
+    env = gym.make('Acrobot-v1')
+    MountainCarSolver = q_learning(env, num_episodes=10000, epsilon=1.0, epsilon_decay_rate=0.1, discount_factor = 0.99, render=True, render_after=1000)
     stats = MountainCarSolver.run()
     plotting.plot_episode_stats(stats, smoothing_window = 25)
 
-    # Trian for a few hours, see if it converges. If it converges, then maybe try to make it faster. Else, then there is a problem that
+    # Train for a few hours, see if it converges. If it converges, then maybe try to make it faster. Else, then there is a problem that
     # should be addressed. 
