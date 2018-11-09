@@ -5,6 +5,8 @@ import tensorflow as tf
 import itertools
 from matplotlib import pyplot as plt
 
+tf.executing_eagerly()
+
 class deep_q_learner():
     def __init__(self, 
                 env,
@@ -89,12 +91,6 @@ class deep_q_learner():
         
         def predict_q(self):
             return None 
-
-
-
-
-
-
 
     def _preprocessor(self, sess, image):
         """

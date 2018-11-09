@@ -156,7 +156,7 @@ class q_learning():
 
 if __name__ == "__main__":
     env = gym.make('Acrobot-v1')
-    MountainCarSolver = q_learning(env, num_episodes=10000, epsilon=1.0, epsilon_decay_rate=0.999, discount_factor = 0.99, render=True, render_after=1000)
+    MountainCarSolver = q_learning(env, num_episodes=10000, epsilon=0.5, epsilon_decay_rate=0.99, discount_factor = 0.99, render=True, render_after=1000)
     stats = MountainCarSolver.run()
     plotting.plot_episode_stats(stats, smoothing_window = 25)
 

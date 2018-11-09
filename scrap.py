@@ -10,6 +10,8 @@ import tensorflow as tf
 from RL.lib import plotting
 from collections import deque, namedtuple
 
+tf.executing_eagerly()
+
 env = gym.envs.make("Breakout-v0")
 
 VALID_ACTIONS = [0, 1, 2, 3]
@@ -90,6 +92,7 @@ class Estimator():
 
         # Get the predictions for the chosen actions only
         gather_indices = tf.range(batch_size) * tf.shape(self.predictions)[1] + self.actions_pl
+        print(gather_indices)
         self.action_predictions = tf.gather(tf.reshape(self.predictions, [-1]), gather_indices)
 
         # Calculate the loss
