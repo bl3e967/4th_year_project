@@ -1,2 +1,2 @@
-model_checkpoint_path: "D:\\Workspace\\4th year project\\Programming\\experiments\\Breakout-v0\\checkpoints\\model"
-all_model_checkpoint_paths: "D:\\Workspace\\4th year project\\Programming\\experiments\\Breakout-v0\\checkpoints\\model"
+model_checkpoint_path: "D:\\Workspace\\4th_year_project\\Programming\\experiments\\Breakout-v0\\checkpoints\\model"
+all_model_checkpoint_paths: "D:\\Workspace\\4th_year_project\\Programming\\experiments\\Breakout-v0\\checkpoints\\model"
