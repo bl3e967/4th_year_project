@@ -12,9 +12,10 @@ class dq_learner():
     class estimator():
         def __init__(self, env, variable_scope_name, summary_dir = None):
             self.env = env 
+            self.name = variable_scope_name
             
-            # Construct graph
             with tf.variable_scope(variable_scope_name):
+                # Construct graph
                 self._build_graph()
 
                 # Create filewriter object if output directory has been specified
@@ -49,13 +50,11 @@ class dq_learner():
                 The output layer is a fully-connected linear layer with a single output for each valid action.
             """
             # Placeholder for input [batch_size, 84, 84, m = 4]
-            self.input_pl = tf.placeholder(shape=[None, 84, 84, 4], dtype = tf.uint8, name = "Input_State")
-
+            self.input_pl = tf.placeholder(shape=[None, 84, 84, 4], dtype=tf.uint8, name = "Input_State")
             # Placeholder for output [Depends on valid actions]
             self.target_pl = tf.placeholder(shape=[None], dtype=tf.float32, name = "td_target")
-
             # Placeholder for actions that were selected
-            self.actions_pl = tf.placeholder(shape=[None], dtype = tf.int32, name="actions")
+            self.actions_pl = tf.placeholder(shape=[None], dtype=tf.int32, name="actions")
 
             # Normalise input image
             input_image = tf.to_float(self.input_pl)/255.0
@@ -97,18 +96,18 @@ class dq_learner():
                 tf.summary.histogram("q_values_hist", self.predictions),
             ])
 
-        def get_weights(self, sess):
-            # Create array of trainable parameters from original network
-            param = [theta for theta in tf.trainable_variables() if theta.name.startswith("Estimator")]
-             # Sort parameters
-            param = sorted(param, key=lambda v: v.name)
-            return sess.run(param)
+        # def get_weights(self, sess):
+        #     # Create array of trainable parameters from original network
+        #     param = [theta for theta in tf.trainable_variables() if theta.name.startswith("Estimator")]
+        #      # Sort parameters
+        #     param = sorted(param, key=lambda v: v.name)
+        #     return sess.run(param)
 
         def make_epsilon_greedy_policy(self, sess, state, epsilon):
-            action_probs = np.ones(self.env.action_space.n)*epsilon/self.env.action_space.n
-            q_value = self.predict(sess, np.expand_dims(state,0))[0]
+            action_probs = np.ones(self.env.action_space.n, dtype=float)*epsilon/self.env.action_space.n
+            q_value = self.predict(sess, np.expand_dims(state, 0))[0]
             best_actions_indices = np.argmax(q_value)
-            action_probs[best_actions_indices] += (1 - epsilon)
+            action_probs[best_actions_indices] += (1.0 - epsilon)
             return action_probs
 
         def predict(self, sess, state):
@@ -150,9 +149,9 @@ class dq_learner():
                 estimator1: Estimator to copy the parameters from
                 estimator2: Estimator to copy the parameters to
             """
-            e1_params = [t for t in tf.trainable_variables() if t.name.startswith("Estimator")]
+            e1_params = [t for t in tf.trainable_variables() if t.name.startswith(estimator1.name)]
             e1_params = sorted(e1_params, key=lambda v: v.name)
-            e2_params = [t for t in tf.trainable_variables() if t.name.startswith("Estimator")]
+            e2_params = [t for t in tf.trainable_variables() if t.name.startswith(estimator2.name)]
             e2_params = sorted(e2_params, key=lambda v:v.name)
 
             self.update_ops = []
@@ -192,7 +191,7 @@ class dq_learner():
         def __init__(self):
             self.D = []
         
-        def populate_memory(self, sess, env, PreProcessor, init_memory_capacity, q_estimator, batch_size):
+        def populate_memory(self, sess, env, PreProcessor, init_memory_capacity, q_estimator, batch_size, epsilon):
             self.env = env
             self.batch_size = batch_size
             state = self.env.reset()
@@ -205,7 +204,7 @@ class dq_learner():
             for i in range(init_memory_capacity):
                 print("\rInitialising memory capacity {}/{}".format(i,init_memory_capacity), end="")
                 sys.stdout.flush()
-                action_probs = q_estimator.make_epsilon_greedy_policy(sess, state, 0.1)
+                action_probs = q_estimator.make_epsilon_greedy_policy(sess, state, epsilon[i])
                 best_action  = np.random.choice(np.arange(len(action_probs)), p = action_probs)
                 next_frame, reward, done, _ = self.env.step(best_action)
                 next_state = PreProcessor.preprocess(sess, next_frame)
@@ -215,7 +214,9 @@ class dq_learner():
                 self.D.append(tuple([state, next_state, best_action, reward, done]))
 
                 if done: 
-                    state = PreProcessor.preprocess(sess, env.reset())
+                    # TODO: Doing env.reset inside preprocess seems to do something weird
+                    state = env.reset()
+                    state = PreProcessor.preprocess(sess, state)
                     state = np.stack([state]*4, axis = 2)
                 else: 
                     state = next_state
@@ -245,7 +246,7 @@ class dq_learner():
                  video_dir = None, 
                  record_video_every = 50, 
                  epsilon = 1.0,
-                 epsilon_decay_rate = (1.0 - 1.0/500000.0), 
+                 epsilon_decay_over=500000, 
                  min_epsilon = 0.1,
                  discount_factor = 0.99, 
                  num_episodes = 10000, 
@@ -270,9 +271,11 @@ class dq_learner():
         
         self.video_record_interval = record_video_every
         # Epsilon and epsilon decay rate and minimum epsilon value
-        self.epsilon = epsilon
-        self.epsilon_decay_rate = epsilon_decay_rate
+        # Changed epsilon profile as np.linspace rather than decay over
+        # episode number
+        self.epsilon_decay_step_number = epsilon_decay_over
         self.min_epsilon = min_epsilon
+        self.epsilon = np.linspace(epsilon, min_epsilon, epsilon_decay_over)
         # Discount factor
         self.discount_factor = discount_factor
         # Total number of episodes to train on
@@ -289,7 +292,7 @@ class dq_learner():
         self.loss = None
 
         # Initialise Q value estimator objects
-        self.q_estimator      = self.estimator(self.env, "q_estimator", summary_dir = self.summary_dir)
+        self.q_estimator      = self.estimator(self.env, "q_estimator",  summary_dir = self.summary_dir)
         self.target_estimator = self.estimator(self.env, "td_estimator", summary_dir = self.summary_dir)
         
         # Initialise memory container objects
@@ -319,30 +322,34 @@ class dq_learner():
             if not os.path.exists(summary_dir):
                 os.mkdir(summary_dir)
         
-    def _get_epsilon(self, episode_no):
-        """
-        Calculate value for epsilon. Clip epsilon value to minimum 0.1
-        Args: 
-            episode_no: The number of episodes performed so far
+    # def _get_epsilon(self, episode_no):
+    #     """
+    #     Calculate value for epsilon. Clip epsilon value to minimum 0.1
+    #     Args: 
+    #         episode_no: The number of episodes performed so far
 
-        Returns: 
-            epsilon: epsilon value
-        """
-        decayed_epsilon = self.epsilon*self.epsilon_decay_rate**episode_no
+    #     Returns: 
+    #         epsilon: epsilon value
+    #     """
+    #     decayed_epsilon = self.epsilon*self.epsilon_decay_rate**episode_no
         
-        if decayed_epsilon < self.min_epsilon:
-            return self.min_epsilon
-        else: 
-            return decayed_epsilon
+    #     if decayed_epsilon < self.min_epsilon:
+    #         return self.min_epsilon
+    #     else: 
+    #         return decayed_epsilon
 
     def train(self, sess):               
+        if self.init_memory_capacity > self.epsilon_decay_step_number:
+            raise ValueError(
+                'Initial memory capacity should be equal to epsilon decay step number')
         # Prepopulate bank of memory for experience replay
         self.D.populate_memory(sess, 
                                self.env, 
                                self.preprocessor, 
                                self.init_memory_capacity,
                                self.q_estimator, 
-                               self.batch_size)
+                               self.batch_size,
+                               self.epsilon)
 
         # Initialise tensorflow saver object
         saver = tf.train.Saver()
@@ -374,34 +381,41 @@ class dq_learner():
 
         print("\n Starting Episodes")
         for i_episodes in range(self.num_episodes):
-            # Initialise state
-            state = self.preprocessor.preprocess(sess, self.env.reset())
-
-            # Append new slot for reward list
-            episode_rewards.append(0)
-
             # Save current state
             saver.save(tf.get_default_session(), self.checkpoint_dir)
             
+            # Append new slot for reward list
+            episode_rewards.append(0)
+
+            # Initialise state
+            state = self.env.reset()
+            state = self.preprocessor.preprocess(sess, state)
+
             # Initialise stack of frames by duplicating the same frame 4 times
             state = np.stack([state]*4, axis = 2)
 
-            # Calculate epsilon value
-            epsilon = self._get_epsilon(i_episodes)
-
             for t in itertools.count():
-                # Print out episode and iteration
-                print("\rEpisode: {}, iteration: {}, loss: {} ".format(i_episodes, t, self.loss), end="")
-                sys.stdout.flush()
-
                 # Update target estimator every n steps              
                 if cum_time % self.network_update_interval == 0:
                     self.copier.make(sess)
+                    print("\nTarget Estimator has been updated")
 
                 # With probability epsilon select a random action
                 # Otherwise select action = argmax(Q(image,action)|theta)
+                # Calculate epsilon value
+                if cum_time < self.epsilon_decay_step_number:
+                    epsilon = self.epsilon[cum_time]
+                else:
+                    epsilon = self.min_epsilon
+
                 action_prob = self.q_estimator.make_epsilon_greedy_policy(sess, state, epsilon)
                 best_action = np.random.choice(np.arange(len(action_prob)), p=action_prob)
+                print("\nBest Action {}".format(best_action))
+                # Print out episode and iteration
+                print("\rEpisode: {}, iteration: {}, Epsilon: {}, loss: {} ".format(
+                    i_episodes, t, epsilon, self.loss),
+                    end="")
+                sys.stdout.flush()
 
                 # Execute action in emulator and observe reward and image
                 next_image, reward, done, _ = self.env.step(best_action)
@@ -417,7 +431,7 @@ class dq_learner():
                 next_state = np.append(state[:,:,1:], np.expand_dims(next_state, 2), axis = 2)
 
                 # Discard oldest memory if the memory capacity is full
-                if self.D.get_length == self.memory_capacity:
+                if self.D.get_length() == self.memory_capacity:
                     self.D.pop(0)    
                 
                 # Make a tuple of (state, next_state, action, reward) and store it in D
@@ -432,10 +446,11 @@ class dq_learner():
                 # Set td_target = reward_j if episode terminates at j+1
                 # set td_target = reward_j + gamma*max(Q'(next_state, action'|theta'))
                 q_values   = self.target_estimator.predict(sess, next_states) 
-                td_targets = rewards + np.invert(dones)*self.discount_factor*np.max(q_values)
+                td_targets = rewards + np.invert(dones).astype(np.float32)*self.discount_factor*np.amax(q_values, axis = 1)
                 
                 # Perform a gradient descent step on td_error wrt theta
-                self.loss = self.target_estimator.update(sess, states, actions, td_targets)
+                states = np.array(states)
+                self.loss = self.q_estimator.update(sess, states, actions, td_targets)
 
                 # Break if episode is finished
                 if done: 
@@ -474,11 +489,13 @@ if __name__ == "__main__":
 
     global_step = tf.Variable(0, name='global_step', trainable=False)
     
+    VALID_ACTIONS = [0, 1, 2, 3]
+
     learner = dq_learner(env,
                         summary_dir = summary_dir,
                         checkpoint_dir = checkpoint_dir,
                         video_dir = video_dir,
-                        init_memory_capacity=50000)
+                        init_memory_capacity=500)
 
     with tf.Session() as sess: 
         sess.run(tf.global_variables_initializer())

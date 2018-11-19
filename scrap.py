@@ -213,7 +213,7 @@ def deep_q_learning(sess,
                     epsilon_end=0.1,
                     epsilon_decay_steps=500000,
                     batch_size=32,
-                    record_video_every=50):
+                    record_video_every=500):
     """
     Q-Learning algorithm for off-policy TD control using Function Approximation.
     Finds the optimal greedy policy while following an epsilon-greedy policy.
@@ -342,7 +342,7 @@ def deep_q_learning(sess,
             # Take a step
             action_probs = policy(sess, state, epsilon)
             action = np.random.choice(np.arange(len(action_probs)), p=action_probs)
-            next_state, reward, done, _ = env.step(VALID_ACTIONS[action])
+            next_state, reward, done, _ = env.step(action)
             next_state = state_processor.process(sess, next_state)
             next_state = np.append(state[:,:,1:], np.expand_dims(next_state, 2), axis=2)
 
@@ -417,7 +417,7 @@ with tf.Session() as sess:
                                     experiment_dir=experiment_dir,
                                     num_episodes=10000,
                                     replay_memory_size=500000,
-                                    replay_memory_init_size=50000,
+                                    replay_memory_init_size=500,
                                     update_target_estimator_every=10000,
                                     epsilon_start=1.0,
                                     epsilon_end=0.1,
